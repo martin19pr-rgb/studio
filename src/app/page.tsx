@@ -7,6 +7,7 @@ import { Navigation } from '@/components/navigation';
 import { GlassCard } from '@/components/glass-card';
 import { RiskScoreCard } from '@/components/risk-score-card';
 import { VoiceGuardian } from '@/components/voice-guardian';
+import { EmergencyChatbot } from '@/components/emergency-chatbot';
 import { Bell, Shield, UserCheck, Wind } from 'lucide-react';
 import Image from 'next/image';
 
@@ -35,7 +36,7 @@ export default function Home() {
       </div>
 
       <div className="flex-1 flex flex-col gap-8">
-        {/* SOS Central Piece - Now the Brain of the App */}
+        {/* SOS Central Piece */}
         <section className="flex flex-col items-center justify-center py-6">
           <SOSButton />
         </section>
@@ -88,6 +89,9 @@ export default function Home() {
           </div>
         </section>
       </div>
+
+      {/* Floating AI Voice Assistant Icon (Restored) */}
+      <EmergencyChatbot />
 
       <Navigation />
     </main>
