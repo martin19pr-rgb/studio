@@ -26,7 +26,7 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
   const db = useFirestore();
   const { user } = useUser();
 
-  const HOLD_DURATION = 2000; // Faster trigger for emergencies
+  const HOLD_DURATION = 2000;
 
   useEffect(() => {
     if (isHolding && status === 'idle') {
@@ -59,7 +59,6 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
     setStatus('dispatched');
     if (timerRef.current) clearInterval(timerRef.current);
     
-    // Log incident to Firebase
     if (db) {
       const incidentData = {
         userId: user?.uid || 'anonymous',
@@ -98,6 +97,19 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="relative w-64 h-64 flex items-center justify-center">
+        {/* Ghost Light Pulse - Prominent when Listening */}
+        <AnimatePresence>
+          {listening && status === 'idle' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 0.5, scale: 1.2 }}
+              exit={{ opacity: 0 }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              className="absolute inset-0 rounded-full bg-primary/30 blur-3xl -z-10"
+            />
+          )}
+        </AnimatePresence>
+
         {/* Progress Ring */}
         <svg className="absolute w-full h-full -rotate-90">
           <circle
@@ -126,7 +138,6 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
           />
         </svg>
 
-        {/* The Button - Starts Red, turns Green on Dispatch */}
         <motion.button
           onMouseDown={() => setIsHolding(true)}
           onMouseUp={() => setIsHolding(false)}
@@ -144,15 +155,6 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
             status === 'cancelled' && "ring-4 ring-destructive/40"
           )}
         >
-          {/* Ghost Light for Prompts/Voice */}
-          {listening && status === 'idle' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              className="absolute inset-0 rounded-full bg-primary/20 blur-2xl animate-pulse"
-            />
-          )}
-
           <AnimatePresence mode="wait">
             {status === 'idle' && (
               <motion.div
@@ -172,7 +174,7 @@ export const SOSButton = ({ listening = false }: SOSButtonProps) => {
                 )}
                 <span className="font-headline text-3xl font-bold tracking-tighter text-white">SOS</span>
                 <span className="text-[10px] uppercase tracking-widest text-white/70 mt-1">
-                  {isHolding ? "TRIGGERING..." : listening ? "AWAITING VOICE" : "HOLD TO DISPATCH"}
+                  {isHolding ? "TRIGGERING..." : listening ? "LISTENING..." : "HOLD TO DISPATCH"}
                 </span>
               </motion.div>
             )}

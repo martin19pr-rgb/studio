@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A conversational AI voice assistant flow for emergency guidance.
@@ -30,6 +31,12 @@ const assistantPrompt = ai.definePrompt({
   name: 'voiceAssistantPrompt',
   input: { schema: VoiceAssistantInputSchema },
   output: { schema: z.string().describe('A concise, helpful, and reassuring response.') },
+  config: {
+    safetySettings: [
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }, // Allow emergency help
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+    ],
+  },
   prompt: `You are the Provincial Emergency AI Command Assistant. Your tone is calm, authoritative, and extremely supportive.
 You are the "brain" of a safety network connecting citizens of Limpopo to emergency responders.
 
@@ -44,8 +51,9 @@ Rules:
 1. Address the user by name if available (e.g., "Understood, Lebogang...").
 2. Be extremely concise (max 2 sentences).
 3. Provide actionable safety advice or confirm that the system is monitoring their situation.
-4. If they sound in distress, remind them you are ready to dispatch police or an ambulance.
-5. Do not use complex jargon. Focus on immediate safety.`,
+4. If they sound in distress or report a crime, remind them you are ready to dispatch police or an ambulance immediately.
+5. If the user is in a delicate or life-threatening situation, use a whisper-like calm tone in your text instructions.
+6. Do not use complex jargon. Focus on immediate safety.`,
 });
 
 const voiceAssistantFlow = ai.defineFlow(

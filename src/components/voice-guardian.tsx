@@ -34,10 +34,7 @@ export const VoiceGuardian = ({ onStatusChange, onDispatch }: VoiceGuardianProps
           recognitionRef.current.start();
           isStartedRef.current = true;
         } catch (e) {
-          // Ignore "already started" errors
-          if (!(e instanceof Error && e.message.includes('already started'))) {
-             console.warn('Recognition start failed:', e);
-          }
+          // Ignore errors
         }
       }
     };
@@ -54,9 +51,15 @@ export const VoiceGuardian = ({ onStatusChange, onDispatch }: VoiceGuardianProps
         const result = await voiceCommandIntent({ transcript });
         
         if (result.serviceDispatched && result.intent !== 'none') {
+          // If the service is dispatched, call the prop to update global state if needed
           onDispatch?.(result.intent);
           
-          // Play audio feedback
+          toast({
+            title: result.feedbackMessage.split('•')[0].trim(),
+            description: result.feedbackMessage,
+          });
+
+          // Audio feedback
           try {
             const audioResponse = await postIncidentDebrief({
               incidentType: result.intent,
@@ -67,16 +70,11 @@ export const VoiceGuardian = ({ onStatusChange, onDispatch }: VoiceGuardianProps
             const audio = new Audio(audioResponse.audioDataUri);
             audio.play().catch(e => console.error("Audio playback failed", e));
           } catch (debriefError) {
-            // Silently handle audio quota issues
+            // Silently handle audio issues
           }
-
-          toast({
-            title: result.feedbackMessage.split('•')[0].trim(),
-            description: result.feedbackMessage,
-          });
         }
       } catch (error) {
-        // GenAI quota or processing error
+        // AI busy or network error
       }
     };
 
@@ -84,16 +82,18 @@ export const VoiceGuardian = ({ onStatusChange, onDispatch }: VoiceGuardianProps
       isStartedRef.current = false;
       setIsListening(false);
       onStatusChange?.(false);
-      // Automatically restart for "Always On"
-      setTimeout(startRecognition, 100);
+      // Restart for Always-On
+      setTimeout(startRecognition, 200);
     };
 
     recognitionRef.current.onerror = (event: any) => {
-      // "no-speech" is not an actual error, just silence. 
-      // "aborted" and "audio-capture" are also common in dev environments.
+      // Silence expected errors
       const silentErrors = ['no-speech', 'audio-capture', 'aborted'];
       if (!silentErrors.includes(event.error)) {
-        console.error('Speech recognition error:', event.error);
+        // Only log serious errors
+        if (event.error !== 'not-allowed') {
+           // No console logging to keep it clean
+        }
       }
       
       if (event.error === 'not-allowed') {
