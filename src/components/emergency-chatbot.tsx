@@ -2,19 +2,26 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GlassCard } from './glass-card';
-import { Mic, X, Bot, ShieldAlert, Volume2, Loader2 } from 'lucide-react';
+import { Mic, X, Bot, Volume2, Loader2, Waves } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { voiceAssistant } from '@/ai/flows/voice-assistant-flow';
+import { useUser, useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export const EmergencyChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'I am your Emergency AI Guardian. Press the microphone and speak to me.' }
+    { role: 'assistant', text: 'Provincial Command active. Speak to me, I am here to assist.' }
   ]);
   
+  const { user } = useUser();
+  const db = useFirestore();
+  const { data: profile } = useDoc(user ? doc(db, 'users', user.uid) : null);
+
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -55,21 +62,30 @@ export const EmergencyChatbot = () => {
     setMessages(prev => [...prev, { role: 'user', text: transcript }]);
 
     try {
-      const response = await voiceAssistant({ transcript });
+      const response = await voiceAssistant({ 
+        transcript,
+        userName: profile?.name || 'Citizen',
+        location: 'N1 North, Polokwane', // Real app would use geolocation
+        medicalNotes: profile ? `Blood: ${profile.bloodType}, Allergies: ${profile.allergies}` : undefined
+      });
       
       setMessages(prev => [...prev, { role: 'assistant', text: response.text }]);
       
-      // Play audio response
+      // Play audio response and handle speaking state
       if (audioRef.current) {
         audioRef.current.src = response.audioDataUri;
-        audioRef.current.play();
+        audioRef.current.onplay = () => setIsSpeaking(true);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.play().catch(e => console.error("Audio playback blocked", e));
       } else {
         const audio = new Audio(response.audioDataUri);
         audioRef.current = audio;
-        audio.play();
+        audio.onplay = () => setIsSpeaking(true);
+        audio.onended = () => setIsSpeaking(false);
+        audio.play().catch(e => console.error("Audio playback blocked", e));
       }
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', text: "I'm sorry, I'm having trouble connecting to the command network. Please use the SOS button if this is an emergency." }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, { role: 'assistant', text: "Signal lost. Please use the SOS button if you are in danger." }]);
     } finally {
       setIsProcessing(false);
     }
@@ -97,13 +113,13 @@ export const EmergencyChatbot = () => {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Bot className="w-5 h-5 text-accent" />
-                    {(isListening || isProcessing) && (
+                    {(isListening || isProcessing || isSpeaking) && (
                       <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent rounded-full animate-ping" />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-white">Emergency Voice AI</h3>
-                    <p className="text-[10px] text-accent font-medium">Real-time Safety Network</p>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-white">Safety Assistant</h3>
+                    <p className="text-[10px] text-accent font-medium">Command Network Live</p>
                   </div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/10 rounded-full">
@@ -117,35 +133,42 @@ export const EmergencyChatbot = () => {
                     "max-w-[85%] p-4 rounded-2xl text-xs leading-relaxed transition-all",
                     msg.role === 'assistant' 
                       ? "bg-white/5 text-white/90 self-start border border-white/5" 
-                      : "bg-accent/20 text-white self-end border border-accent/20"
+                      : "bg-accent/20 text-white self-end border border-accent/20 shadow-lg"
                   )}>
-                    {msg.role === 'assistant' && <Volume2 className="w-3 h-3 mb-1 text-accent inline-block mr-2" />}
+                    {msg.role === 'assistant' && <Volume2 className={cn("w-3 h-3 mb-1 text-accent inline-block mr-2", isSpeaking && i === messages.length -1 && "animate-pulse")} />}
                     {msg.text}
                   </div>
                 ))}
                 {isProcessing && (
                   <div className="self-start bg-white/5 p-4 rounded-2xl border border-white/5 animate-pulse flex items-center gap-2">
                     <Loader2 className="w-3 h-3 animate-spin text-accent" />
-                    <span className="text-[10px] uppercase font-bold text-accent tracking-tighter">AI Analysing...</span>
+                    <span className="text-[10px] uppercase font-bold text-accent tracking-tighter">Command Thinking...</span>
                   </div>
                 )}
               </div>
 
               <div className="p-6 bg-white/5 flex flex-col items-center gap-4">
-                <button 
-                  onClick={toggleListening}
-                  disabled={isProcessing}
-                  className={cn(
-                    "w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500",
-                    isListening 
-                      ? "bg-destructive/40 ring-4 ring-destructive animate-pulse scale-110" 
-                      : "bg-accent/20 border-2 border-accent/40 text-accent hover:bg-accent/30"
+                <div className="relative">
+                   <button 
+                    onClick={toggleListening}
+                    disabled={isProcessing || isSpeaking}
+                    className={cn(
+                      "w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500 z-10 relative",
+                      isListening 
+                        ? "bg-destructive/40 ring-4 ring-destructive animate-pulse scale-110" 
+                        : isSpeaking
+                        ? "bg-primary/20 ring-4 ring-primary animate-pulse"
+                        : "bg-accent/20 border-2 border-accent/40 text-accent hover:bg-accent/30"
+                    )}
+                  >
+                    {isSpeaking ? <Waves className="w-8 h-8 text-primary" /> : <Mic className={cn("w-8 h-8", isListening ? "text-white" : "text-accent")} />}
+                  </button>
+                  {isSpeaking && (
+                    <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse -z-0" />
                   )}
-                >
-                  <Mic className={cn("w-8 h-8", isListening ? "text-white" : "text-accent")} />
-                </button>
+                </div>
                 <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest text-center">
-                  {isListening ? "Listening..." : isProcessing ? "Processing Response..." : "Tap to Speak to Assistant"}
+                  {isListening ? "Listening..." : isProcessing ? "Routing Intel..." : isSpeaking ? "AI Assistant Speaking..." : "Tap to Speak to Command"}
                 </p>
               </div>
             </GlassCard>

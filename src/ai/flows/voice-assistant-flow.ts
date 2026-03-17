@@ -2,7 +2,7 @@
 /**
  * @fileOverview A conversational AI voice assistant flow for emergency guidance.
  *
- * - voiceAssistant - A function that handles general emergency conversation.
+ * - voiceAssistant - A function that handles general emergency conversation with contextual intelligence.
  * - VoiceAssistantInput - The input type for the voiceAssistant function.
  * - VoiceAssistantOutput - The return type for the voiceAssistant function (text + audio).
  */
@@ -13,12 +13,15 @@ import { googleAI } from '@genkit-ai/google-genai';
 import wav from 'wav';
 
 const VoiceAssistantInputSchema = z.object({
-  transcript: z.string().describe('The user\'s voice query or statement.'),
+  transcript: z.string().describe("The user's voice query or statement."),
+  userName: z.string().optional().describe("The citizen's name for personalized response."),
+  location: z.string().optional().describe("The user's current location or landmark."),
+  medicalNotes: z.string().optional().describe("Relevant medical info like blood type or allergies."),
 });
 export type VoiceAssistantInput = z.infer<typeof VoiceAssistantInputSchema>;
 
 const VoiceAssistantOutputSchema = z.object({
-  text: z.string().describe('The assistant\'s text response.'),
+  text: z.string().describe("The assistant's text response."),
   audioDataUri: z.string().describe('The generated response as a WAV audio data URI.'),
 });
 export type VoiceAssistantOutput = z.infer<typeof VoiceAssistantOutputSchema>;
@@ -27,16 +30,22 @@ const assistantPrompt = ai.definePrompt({
   name: 'voiceAssistantPrompt',
   input: { schema: VoiceAssistantInputSchema },
   output: { schema: z.string().describe('A concise, helpful, and reassuring response.') },
-  prompt: `You are the Provincial Emergency AI Assistant. Your tone is calm, professional, and authoritative yet supportive.
-You provide guidance for safety and emergency situations in the Limpopo province.
+  prompt: `You are the Provincial Emergency AI Command Assistant. Your tone is calm, authoritative, and extremely supportive.
+You are the "brain" of a safety network connecting citizens of Limpopo to emergency responders.
+
+Context:
+- Citizen Name: {{{userName}}}
+- Current Location: {{{location}}}
+- Medical Status: {{{medicalNotes}}}
 
 User Query: {{{transcript}}}
 
 Rules:
-1. Be extremely concise (1-2 sentences).
-2. If the user is in immediate danger, advise them to use the SOS button or say "Help Me".
-3. Provide actionable safety advice based on their query.
-4. Do not use complex jargon.`,
+1. Address the user by name if available (e.g., "Understood, Lebogang...").
+2. Be extremely concise (max 2 sentences).
+3. Provide actionable safety advice or confirm that the system is monitoring their situation.
+4. If they sound in distress, remind them you are ready to dispatch police or an ambulance.
+5. Do not use complex jargon. Focus on immediate safety.`,
 });
 
 const voiceAssistantFlow = ai.defineFlow(
