@@ -26,13 +26,22 @@ export const RiskScoreCard = () => {
       });
       setData(result);
     } catch (e: any) {
-      console.error('Risk Score Load Error:', e);
-      if (e.message?.includes('429') || e.message?.includes('quota')) {
-        setError('AI Analysis busy. Retrying soon...');
+      // Check for Genkit quota errors
+      const errorMessage = e.message?.toLowerCase() || "";
+      if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('exhausted')) {
+        setError('AI Analysis busy. Standard safety active.');
       } else {
-        setError('Unable to fetch live risk analysis.');
+        setError('Live analysis paused.');
       }
-      // Fallback data if needed
+      
+      // Provide generic fallback data if AI is down
+      if (!data) {
+        setData({
+          riskScorePercentage: 5,
+          threatLevel: 'LOW',
+          advice: "Maintain standard safety protocols. Guardian recording is active."
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -42,34 +51,22 @@ export const RiskScoreCard = () => {
     loadRisk();
   }, []);
 
-  if (loading) return (
+  if (loading && !data) return (
     <GlassCard className="animate-pulse flex flex-col gap-4">
       <div className="h-4 bg-white/10 rounded w-1/3" />
       <div className="h-12 bg-white/10 rounded" />
     </GlassCard>
   );
 
-  if (error && !data) return (
-    <GlassCard className="flex flex-col gap-3 border-yellow-500/20 bg-yellow-500/5">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Risk Analysis Pending</span>
-        <button onClick={loadRisk} className="p-1 hover:bg-white/10 rounded-full transition-colors">
-          <RefreshCw className="w-3 h-3 text-muted-foreground" />
-        </button>
-      </div>
-      <div className="flex items-center gap-2 text-yellow-500">
-        <AlertTriangle className="w-4 h-4" />
-        <p className="text-xs font-medium">{error}</p>
-      </div>
-      <p className="text-[10px] text-muted-foreground italic">System maintaining standard safety protocols.</p>
-    </GlassCard>
-  );
-
   return (
     <GlassCard className="flex flex-col gap-3">
       <div className="flex justify-between items-start">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Personal Risk Analysis</span>
-        <TrendingDown className="w-4 h-4 text-primary" />
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+          {error ? "System Safety Analysis" : "Personal Risk Analysis"}
+        </span>
+        <button onClick={loadRisk} disabled={loading} className={cn("p-1 hover:bg-white/10 rounded-full transition-all", loading && "animate-spin")}>
+          <RefreshCw className="w-3 h-3 text-muted-foreground" />
+        </button>
       </div>
       
       <div className="flex items-end gap-2">
@@ -86,11 +83,17 @@ export const RiskScoreCard = () => {
         </span>
       </div>
 
-      <div className="flex gap-3 items-center bg-white/5 p-3 rounded-xl border border-white/10 mt-1">
-        <ShieldCheck className="w-8 h-8 text-primary shrink-0" />
-        <p className="text-xs text-white/80 leading-relaxed font-medium">
-          {data?.advice || "System initializing. Maintain standard safety procedures."}
-        </p>
+      <div className={cn(
+        "flex gap-3 items-center p-3 rounded-xl border mt-1 transition-colors",
+        error ? "bg-yellow-500/5 border-yellow-500/20" : "bg-white/5 border-white/10"
+      )}>
+        {error ? <AlertTriangle className="w-8 h-8 text-yellow-500 shrink-0" /> : <ShieldCheck className="w-8 h-8 text-primary shrink-0" />}
+        <div className="flex flex-col">
+          <p className="text-xs text-white/80 leading-relaxed font-medium">
+            {data?.advice || "System initializing..."}
+          </p>
+          {error && <p className="text-[9px] text-muted-foreground mt-1 italic">{error}</p>}
+        </div>
       </div>
     </GlassCard>
   );
